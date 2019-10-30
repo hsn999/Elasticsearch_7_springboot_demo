@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -27,6 +28,7 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.action.support.replication.ReplicationResponse;
 import org.elasticsearch.action.update.UpdateResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -34,7 +36,10 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.index.VersionType;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
@@ -87,6 +92,69 @@ public class Es7Test1 {
 		String jsonData = new ObjectMapper().writeValueAsString(article);
 
 		IndexRequest indexRequest = new IndexRequest("article_index").id("12").source(jsonData, XContentType.JSON);
+		
+		/**
+		 * 字符串形式
+		 */
+		IndexRequest request = new IndexRequest(""); //索引
+		request.id("1"); //文档id
+		String jsonString = "{" +
+		        "\"user\":\"kimchy\"," +
+		        "\"postDate\":\"2013-01-30\"," +
+		        "\"message\":\"trying out Elasticsearch\"" +
+		        "}";
+		request.source(jsonString, XContentType.JSON);
+		
+		/**
+		 * 以Map形式提供的文档源，可自动转换为JSON格式
+		 */
+		Map<String, Object> jsonMap = new HashMap<>();
+		jsonMap.put("user", "kimchy");
+		jsonMap.put("postDate", new Date());
+		jsonMap.put("message", "trying out Elasticsearch");
+		IndexRequest indexRequest1 = new IndexRequest("posts")
+		    .id("1").source(jsonMap); 
+		
+		/**
+		 * 使用XConttentBuilder构建内容
+		 */
+		XContentBuilder builder = XContentFactory.jsonBuilder();
+		builder.startObject();
+		{
+		    builder.field("user", "kimchy");
+		    builder.timeField("postDate", new Date());
+		    builder.field("message", "trying out Elasticsearch");
+		}
+		builder.endObject();
+		IndexRequest indexRequest2 = new IndexRequest("posts")
+		    .id("1").source(builder);
+		
+		/**
+		 * 直接用键值对对象构架数据
+		 */
+		IndexRequest indexRequest3 = new IndexRequest("posts")
+			    .id("1")
+			    .source("user", "kimchy",
+			        "postDate", new Date(),
+			        "message", "trying out Elasticsearch");
+		
+		
+		//以下是官方文档提供的可选参数。
+		request.routing("routing"); //路由值
+		request.timeout(TimeValue.timeValueSeconds(1)); //设置超时
+		request.timeout("1s"); ////以字符串形式设置超时时间
+		request.setRefreshPolicy(WriteRequest.RefreshPolicy.WAIT_UNTIL); //以WriteRequest.RefreshPolicy实例形式设置刷新策略
+		request.setRefreshPolicy("wait_for");//以字符串形式刷新策略                     
+		request.version(2); //文档版本
+		request.versionType(VersionType.EXTERNAL); //文档类型
+		request.opType(DocWriteRequest.OpType.CREATE); //操作类型
+		request.opType("create"); //操作类型 可选create或update
+		request.setPipeline("pipeline"); //索引文档之前要执行的摄取管道的名称
+		
+		
+		
+		
+		
 
 		IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
 		String index = indexResponse.getIndex();
@@ -121,13 +189,13 @@ public class Es7Test1 {
 		//Object queryBuilders = QueryBuilders.nestedQuery("comments", query., scoreMode);
 		
 		//ScoreMode.Total s = new ScoreMode() ;
-		SearchRequest request = new SearchRequest("article_index")
+		SearchRequest requestSearch = new SearchRequest("article_index")
 			    .source(new SearchSourceBuilder().query(QueryBuilders.boolQuery()
 			        .should(QueryBuilders.matchQuery("author", "xxxx"))
 			        .should(QueryBuilders.matchQuery("title", "Nest coff"))
 			        .should(QueryBuilders.nestedQuery("comments", QueryBuilders.matchQuery("age", "31"),ScoreMode.Total))));
 		
-		searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+		searchResponse = client.search(requestSearch, RequestOptions.DEFAULT);
 		hits = searchResponse.getHits();
 		totalHits = hits.getTotalHits();
 		numHits = totalHits.value;
