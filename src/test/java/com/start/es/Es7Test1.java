@@ -54,6 +54,8 @@ import com.start.es.entity.Comments;
 
 public class Es7Test1 {
 	public static void main(String[] args) throws IOException {
+		//https://www.elastic.co/guide/en/elasticsearch/client/java-rest/current/java-rest-high-create-index.html 文档位置
+		
 		///////// Client
 		RestClientBuilder restClientBuilder = RestClient.builder(new HttpHost("127.0.0.1", 9200))
 				.setRequestConfigCallback(new RestClientBuilder.RequestConfigCallback() {
